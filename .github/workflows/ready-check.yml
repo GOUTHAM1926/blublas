@@ -1,0 +1,13 @@
+name: Ready Check
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  ready:
+    runs-on: ubuntu-latest
+    steps:
+      - name: OK
+        run: echo "Ready"
