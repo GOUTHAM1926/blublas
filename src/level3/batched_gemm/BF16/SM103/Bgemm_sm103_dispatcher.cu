@@ -41,8 +41,19 @@ extern "C" bool mycublasBgemmSM103_dispatch_nt(
         strideC != (long long)M * N)
         return false;
 
-    mycublasBgemmSM103_bf16_nt_cluster_128x128x64(
-        handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    // Route aligned shapes to the _256x256x64 API entry, others to _128x128x64.
+    // Currently both entries run the 128x128x64 kernel under the hood (BM=256
+    // is invalid for cta_group::2 per PTX 9.3 Table 44), so this routing is
+    // functionally a no-op today — but it puts the scaffolding in place so a
+    // future higher-throughput kernel plugged into _256x256x64 is picked up
+    // automatically for aligned shapes with no dispatcher changes needed.
+    if (M % 256 == 0 && N % 256 == 0) {
+        mycublasBgemmSM103_bf16_nt_cluster_256x256x64(
+            handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    } else {
+        mycublasBgemmSM103_bf16_nt_cluster_128x128x64(
+            handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    }
     return true;
 }
 
@@ -63,8 +74,13 @@ extern "C" bool mycublasBgemmSM103_dispatch_nn(
         strideC != (long long)M * N)
         return false;
 
-    mycublasBgemmSM103_bf16_nn_cluster_128x128x64(
-        handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    if (M % 256 == 0 && N % 256 == 0) {
+        mycublasBgemmSM103_bf16_nn_cluster_256x256x64(
+            handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    } else {
+        mycublasBgemmSM103_bf16_nn_cluster_128x128x64(
+            handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    }
     return true;
 }
 
@@ -85,7 +101,12 @@ extern "C" bool mycublasBgemmSM103_dispatch_tn(
         strideC != (long long)M * N)
         return false;
 
-    mycublasBgemmSM103_bf16_tn_cluster_128x128x64(
-        handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    if (M % 256 == 0 && N % 256 == 0) {
+        mycublasBgemmSM103_bf16_tn_cluster_256x256x64(
+            handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    } else {
+        mycublasBgemmSM103_bf16_tn_cluster_128x128x64(
+            handle, M, N, K, alpha, A, B, beta, C, batchCount);
+    }
     return true;
 }

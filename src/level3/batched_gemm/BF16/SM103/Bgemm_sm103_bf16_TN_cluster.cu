@@ -855,10 +855,13 @@ extern "C" void mycublasBgemmSM103_bf16_tn_cluster_256x256x64(
     const __nv_bfloat16 *A, const __nv_bfloat16 *B, float beta,
     __nv_bfloat16 *C, int batchCount) {
   cudaStream_t stream = handle ? handle->stream : 0;
-  // BM=256 is architecturally invalid for 2-CTA cooperative
-  // tcgen05.mma.kind::f16 — the per-MMA M dimension caps at CTA_GROUP_SIZE * BM
-  // = 256, so BM=256 with 2-CTA cluster would require M=512 per MMA which the
-  // instruction does not encode (results in "illegal instruction" at runtime).
-  // Always fall back to the working 128x128x64 path.
+  // Per PTX 9.3 Table 44, tcgen05.mma.kind::f16 with cta_group::2 only
+  // supports M ∈ {128, 256}. So BM=256 (which needs M=512 per MMA) is
+  // architecturally invalid on this instruction path.
+  // The 128x128x64 cluster kernel already produces a 256-row output tile per
+  // cluster (2 CTAs × BM=128) via the M=256 shape, so it IS the real
+  // production kernel for this API. This entry is kept as a placeholder for
+  // a future higher-throughput implementation (cta_group::1 with BM=256, OR
+  // BM=128 + BN=256, OR a macro-tile variant), routed by the dispatcher.
   dispatch_bgemm_tn_cluster(A, B, C, M, N, K, batchCount, alpha, beta, stream);
 }
